@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minecraft Supreme Edition</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', Tahoma, sans-serif; touch-action: none; }
+        canvas { display: block; }
+
+        /* --- HUD & STATS --- */
+        #hud { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); width: 350px; pointer-events: none; }
+        #bars { display: flex; justify-content: space-between; padding: 0 10px; }
+        .stat { color: #fff; text-shadow: 2px 2px #000; font-size: 20px; font-weight: bold; }
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 24px; pointer-events: none; opacity: 0.8; }
+
+        /* --- HOTBAR (FIXED SLOT SYSTEM) --- */
+        #hotbar-wrap { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; pointer-events: auto; }
+        #hotbar { display: flex; background: rgba(0,0,0,0.85); border: 4px solid #333; padding: 3px; border-radius: 2px; }
+        .slot { width: 45px; height: 45px; border: 4px solid #8b8b8b; margin: 1px; display: flex; justify-content: center; align-items: center; font-size: 26px; background: #8b8b8b; transition: 0.1s; }
+        .slot.active { border-color: #ffffff; box-shadow: 0 0 15px #fff; transform: scale(1.1); z-index: 10; background: #aaaaaa; }
+
+        /* --- CONTROLS --- */
+        .ctrl { position: absolute; background: rgba(0,0,0,0.5); border: 2px solid #fff; border-radius: 50%; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        #joy-area { bottom: 40px; left: 40px; width: 120px; height: 120px; }
+        #btn-jump { bottom: 130px; right: 40px; width: 80px; height: 80px; }
+        #btn-hit { bottom: 40px; right: 40px; width: 80px; height: 80px; background: #c0392b; border-color: #fff; }
+        #btn-inv { bottom: 40px; right: 130px; width: 60px; height: 60px; background: #2980b9; }
+
+        /* --- DEATH SCREEN --- */
+        #death-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(139, 0, 0, 0.8); display: none; flex-direction: column; justify-content: center; align-items: center; color: #fff; z-index: 1000; }
+        #death-screen h1 { font-size: 50px; text-shadow: 4px 4px #000; }
+        #respawn-btn { padding: 15px 40px; background: #fff; color: #000; font-weight: bold; border: none; cursor: pointer; font-size: 20px; }
+
+        /* --- INVENTORY MODAL --- */
+        #inv-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; height: 80%; background: #c6c6c6; border: 6px solid #373737; display: none; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 10px; padding: 20px; overflow-y: auto; z-index: 500; }
+    </style>
+</head>
+<body>
+
+<div id="crosshair">+</div>
+
+<div id="hud">
+    <div id="bars">
+        <div class="stat">❤️❤️❤️❤️❤️</div>
+        <div class="stat">🍗🍗🍗🍗🍗</div>
+    </div>
+</div>
+
+<div id="death-screen">
+    <h1>ÖLDÜN!</h1>
+    <button id="respawn-btn" onclick="respawn()">YENİDEN DOĞ</button>
+</div>
+
+<div id="joy-area" class="ctrl"></div>
+<div id="btn-jump" class="ctrl">ZIPLA</div>
+<div id="btn-hit" class="ctrl">VUR</div>
+<div id="btn-inv" class="ctrl">E</div>
+
+<div id="hotbar-wrap">
+    <div id="hotbar">
+        <div class="slot active" id="slot-0" onclick="selectSlot(0)">⛏️</div>
+        <div class="slot" id="slot-1" onclick="selectSlot(1)">🧱</div>
+        <div class="slot" id="slot-2" onclick="selectSlot(2)">🌿</div>
+        <div class="slot" id="slot-3" onclick="selectSlot(3)">🚪</div>
+        <div class="slot" id="slot-4" onclick="selectSlot(4)">🔴</div>
+    </div>
+</div>
+
+<div id="inv-modal"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // --- 1. ENGINE AYARLARI ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 30, 10);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+    const mats = {
+        '🧱': new THREE.MeshLambertMaterial({color: 0x95a5a6}),
+        '🌿': new THREE.MeshLambertMaterial({color: 0x2ecc71}),
+        '💎': new THREE.MeshLambertMaterial({color: 0x34e7e4}),
+        '🔴': new THREE.MeshLambertMaterial({color: 0xff0000}),
+        '🚪': new THREE.MeshLambertMaterial({color: 0x7e5233}),
+        '🔥': new THREE.MeshLambertMaterial({color: 0xe67e22}),
+        '🪵': new THREE.MeshLambertMaterial({color: 0x5e3c1e}),
+        'default': new THREE.MeshLambertMaterial({color: 0x7f8c8d})
+    };
+
+    const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+    const worldBlocks = [];
+    const chunks = new Set();
+    const CHUNK_SIZE = 10;
+
+    // --- 2. CHUNK SİSTEMİ (BOŞLUKLAR KAPATILDI) ---
+    function generateChunk(cx, cz) {
+        const key = `${cx},${cz}`;
+        if (chunks.has(key)) return;
+        chunks.add(key);
+
+        for(let x = cx*CHUNK_SIZE; x < (cx+1)*CHUNK_SIZE; x++) {
+            for(let z = cz*CHUNK_SIZE; z < (cz+1)*CHUNK_SIZE; z++) {
+                // Perlin benzeri stabil yükseklik (Chunklar arası pürüzsüz geçiş)
+                const h = Math.floor(Math.sin(x*0.2) * Math.cos(z*0.2) * 2) + 3;
+                for(let y=0; y<h; y++) {
+                    createBlock(x, y, z, y === h-1 ? '🌿' : '🧱');
+                }
+            }
+        }
+    }
+
+    function createBlock(x, y, z, type) {
+        const b = new THREE.Mesh(boxGeo, mats[type] || mats['default']);
+        b.position.set(x, y, z);
+        b.userData = { type: type, isDoor: type === '🚪' };
+        scene.add(b);
+        worldBlocks.push(b);
+    }
+
+    // --- 3. OYUNCU, FİZİK VE ÖLÜM ---
+    const player = new THREE.Group();
+    player.position.set(0, 10, 0);
+    scene.add(player);
+    player.add(camera);
+
+    let velocityY = 0;
+    const gravity = 0.008;
+    let isGrounded = false;
+    let isDead = false;
+    let move = { f: 0, r: 0 };
+
+    function checkCollision(pos) {
+        // Dünyadan aşağı düşme kontrolü
+        if(pos.y < -10 && !isDead) die();
+
+        for(let b of worldBlocks) {
+            const dx = Math.abs(pos.x - b.position.x);
+            const dz = Math.abs(pos.z - b.position.z);
+            const dy = Math.abs((pos.y - 1.2) - b.position.y);
+            if(dx < 0.7 && dz < 0.7 && dy < 0.8) return true;
+        }
+        return false;
+    }
+
+    function die() {
+        isDead = true;
+        document.getElementById('death-screen').style.display = 'flex';
+    }
+
+    function respawn() {
+        isDead = false;
+        player.position.set(0, 10, 0);
+        velocityY = 0;
+        document.getElementById('death-screen').style.display = 'none';
+    }
+
+    // --- 4. ENVANTER VE ETKİLEŞİM (SLOT HATASI FİX) ---
+    let curSlotIndex = 0;
+    let hotbarItems = ['⛏️', '🧱', '🌿', '🚪', '🔴'];
+    const allItems = ['⛏️', '🧱', '🌿', '🚪', '🔴', '💎', '🔥', '🪵', '🍎', '🗡️', '📦', '🧪'];
+
+    function selectSlot(i) {
+        curSlotIndex = i;
+        document.querySelectorAll('.slot').forEach((s, idx) => {
+            s.classList.toggle('active', idx === i);
+        });
+    }
+
+    // Blok Koyma / Kırma / Kapı Açma
+    let touchTime = 0;
+    window.addEventListener('pointerdown', (e) => { if(e.target.tagName === 'CANVAS') touchTime = Date.now(); });
+    window.addEventListener('pointerup', (e) => {
+        if(e.target.tagName !== 'CANVAS' || isDead) return;
+        const duration = Date.now() - touchTime;
+        const ray = new THREE.Raycaster();
+        ray.setFromCamera({x:0, y:0}, camera);
+        const hits = ray.intersectObjects(worldBlocks);
+
+        if(hits.length > 0 && hits[0].distance < 5) {
+            const target = hits[0].object;
+
+            // Kapı Mekaniği (Aç/Kapat)
+            if(target.userData.isDoor) {
+                target.position.y += target.userData.open ? -1 : 1;
+                target.userData.open = !target.userData.open;
+                return;
+            }
+
+            if(duration < 250) { // KOY
+                const type = hotbarItems[curSlotIndex];
+                if(type === '⛏️' || type === '🗡️') return; // Aletle blok konmaz
+                createBlock(target.position.x + hits[0].face.normal.x, 
+                            target.position.y + hits[0].face.normal.y, 
+                            target.position.z + hits[0].face.normal.z, type);
+            } else { // KIR
+                scene.remove(target);
+                worldBlocks.splice(worldBlocks.indexOf(target), 1);
+            }
+        }
+    });
+
+    // Envanter Paneli (E Tuşu)
+    document.getElementById('btn-inv').onclick = () => {
+        const m = document.getElementById('inv-modal');
+        m.style.display = m.style.display === 'grid' ? 'none' : 'grid';
+        if(m.style.display === 'grid') {
+            m.innerHTML = allItems.map(item => `<div class="slot" onclick="assignToHotbar('${item}')">${item}</div>`).join('');
+        }
+    };
+
+    function assignToHotbar(item) {
+        hotbarItems[curSlotIndex] = item;
+        document.getElementById(`slot-${curSlotIndex}`).innerHTML = item;
+        document.getElementById('inv-modal').style.display = 'none';
+    }
+
+    // --- 5. HAREKET VE DÖNGÜ ---
+    const joy = document.getElementById('joy-area');
+    joy.ontouchmove = (e) => {
+        const r = joy.getBoundingClientRect();
+        move.f = -(e.touches[0].clientY - (r.top + 60)) / 50;
+        move.r = (e.touches[0].clientX - (r.left + 60)) / 50;
+    };
+    joy.ontouchend = () => move = { f: 0, r: 0 };
+    document.getElementById('btn-jump').onclick = () => { if(isGrounded) velocityY = 0.16; };
+
+    function animate() {
+        if(!isDead) {
+            // Yerçekimi
+            velocityY -= gravity;
+            let nextY = player.position.clone(); nextY.y += velocityY;
+            if(!checkCollision(nextY)) { player.position.y += velocityY; isGrounded = false; } 
+            else { velocityY = 0; isGrounded = true; }
+
+            // Yürüme
+            const dir = new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);
+            const side = new THREE.Vector3(1,0,0).applyQuaternion(player.quaternion);
+            let nextPos = player.position.clone();
+            nextPos.addScaledVector(dir, move.f * 0.15);
+            nextPos.addScaledVector(side, move.r * 0.15);
+            if(!checkCollision(nextPos)) player.position.copy(nextPos);
+
+            // Chunk Yükleme (Sonsuzluk)
+            const cx = Math.floor(player.position.x / CHUNK_SIZE);
+            const cz = Math.floor(player.position.z / CHUNK_SIZE);
+            for(let x=cx-1; x<=cx+1; x++) {
+                for(let z=cz-1; z<=cz+1; z++) generateChunk(x, z);
+            }
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+
+    // Bakış Kontrolü
+    let px, py;
+    window.addEventListener('touchmove', (e) => {
+        if(e.touches[0].clientX > window.innerWidth / 2) {
+            if(px) {
+                player.rotation.y -= (e.touches[0].clientX - px) * 0.01;
+                camera.rotation.x -= (e.touches[0].clientY - py) * 0.01;
+                camera.rotation.x = Math.max(-1.5, Math.min(1.5, camera.rotation.x));
+            }
+            px = e.touches[0].clientX; py = e.touches[0].clientY;
+        }
+    });
+    window.addEventListener('touchend', () => { px = null; py = null; });
+
+    generateChunk(0, 0);
+    animate();
+</script>
+</body>
+  </html>
+  
