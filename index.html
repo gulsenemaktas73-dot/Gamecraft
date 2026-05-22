@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>⛏ MineCraft TR</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Courier New',monospace}
+canvas{display:block;touch-action:none}
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:26px;text-shadow:1px 1px 3px #000,-1px -1px 3px #000;pointer-events:none;z-index:11}
+/* Break bar */
+#bpwrap{position:fixed;top:calc(50% + 48px);left:50%;transform:translateX(-50%);width:180px;height:7px;background:rgba(0,0,0,0.55);border-radius:4px;display:none;z-index:11}
+#bpbar{height:100%;width:0;background:#fff;border-radius:4px}
+/* C++ Koordinat HUD */
+#coords{position:fixed;top:8px;right:8px;color:#fff;font-size:11px;background:rgba(0,0,0,0.55);padding:6px 10px;border-radius:6px;z-index:11;line-height:1.9;pointer-events:none;min-width:170px;font-family:monospace}
+/* Gece/Gündüz */
+#daytime{position:fixed;top:8px;left:50%;transform:translateX(-50%);color:#fff;font-size:12px;background:rgba(0,0,0,0.45);padding:3px 14px;border-radius:10px;z-index:11;pointer-events:none}
+/* Can + Açlık */
+#hpbar,#hgbar{position:fixed;left:50%;transform:translateX(-50%);display:flex;gap:1px;z-index:11;pointer-events:none}
+#hpbar{bottom:98px}
+#hgbar{bottom:78px}
+.heart,.food{font-size:14px}
+/* Hotbar */
+#hotbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:3px;z-index:11}
+.hslot{width:52px;height:52px;border:2px solid #666;background:rgba(0,0,0,0.68);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border-radius:4px;position:relative}
+.hslot.active{border-color:#fff;border-width:3px}
+.hslot-icon{font-size:20px;line-height:1}
+.hslot-name{font-size:6px;color:#ccc;margin-top:1px;text-align:center}
+/* C# blok sayacı göstergesi */
+.hslot-cnt{position:absolute;bottom:2px;right:4px;font-size:9px;color:#fff;font-weight:bold;text-shadow:1px 1px 2px #000}
+#item-label{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);color:#fff;font-size:12px;text-shadow:1px 1px 3px #000;pointer-events:none;z-index:11;background:rgba(0,0,0,0.42);padding:2px 10px;border-radius:4px;white-space:nowrap}
+/* Envanter */
+#inv-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.62);z-index:25;align-items:center;justify-content:center}
+#inv-overlay.open{display:flex}
+#inv-panel{background:#8b8b8b;border:3px solid #333;border-radius:6px;padding:14px;width:min(450px,96vw);max-height:92vh;overflow-y:auto}
+#inv-panel h3{text-align:center;font-size:15px;letter-spacing:3px;color:#111;margin-bottom:6px}
+.ilbl{font-size:9px;color:#222;font-weight:bold;margin:6px 0 3px;letter-spacing:1px}
+.inv-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin-bottom:4px}
+.islot{aspect-ratio:1;border:2px solid #555;background:rgba(0,0,0,0.22);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:2px;font-size:16px;position:relative;transition:background .1s}
+.islot:hover,.islot:active{background:rgba(255,255,255,0.32)}
+.islot.sel{border-color:#fff;background:rgba(255,255,255,0.18)}
+.islot-cnt{position:absolute;bottom:1px;right:2px;font-size:8px;color:#fff;font-weight:bold;text-shadow:1px 1px 2px #000}
+.itip{position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:rgba(10,10,30,.96);color:#ddf;font-size:9px;padding:3px 7px;border-radius:3px;white-space:nowrap;pointer-events:none;display:none;z-index:40;border:1px solid #446;text-align:center}
+.islot:hover .itip{display:block}
+#inv-hint{text-align:center;font-size:10px;color:#333;margin-top:6px}
+/* D-Pad */
+#dpad{position:fixed;bottom:90px;left:14px;display:grid;grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px 52px;gap:2px;z-index:15}
+.db{background:rgba(255,255,255,0.18);border:2px solid rgba(255,255,255,0.35);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none;transition:background .08s}
+.db.pressed,.db:active{background:rgba(255,255,255,0.45)}
+.de{}
+/* Sağ butonlar */
+#rbtns{position:fixed;bottom:90px;right:14px;display:flex;flex-direction:column;gap:7px;z-index:15}
+.rb{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;color:#fff;user-select:none;-webkit-user-select:none;touch-action:none;border:2px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.18);transition:background .08s}
+.rb:active,.rb.pressed{background:rgba(255,255,255,0.5)}
+#rb-jump{background:rgba(50,200,50,0.3);border-color:rgba(50,200,50,0.6)}
+#rb-atk{background:rgba(200,50,50,0.3);border-color:rgba(200,50,50,0.6)}
+#rb-plc{background:rgba(50,100,220,0.3);border-color:rgba(50,100,220,0.6)}
+#rb-inv{background:rgba(180,140,50,0.3);border-color:rgba(180,140,50,0.6)}
+#rb-eat{background:rgba(50,180,100,0.3);border-color:rgba(50,180,100,0.6)}
+/* Efektler */
+#dflash{position:fixed;inset:0;background:rgba(255,0,0,0);pointer-events:none;z-index:30;transition:background .1s}
+#dflash.on{background:rgba(255,0,0,0.3)}
+#notify{position:fixed;top:34%;left:50%;transform:translateX(-50%);color:#ffe;font-size:16px;font-weight:bold;text-shadow:2px 2px 5px #000;pointer-events:none;z-index:16;opacity:0;transition:opacity .3s;text-align:center;max-width:90vw}
+#notify.show{opacity:1}
+/* Kontrol bilgisi */
+#info{position:fixed;top:8px;left:8px;color:#fff;font-size:10px;z-index:11;background:rgba(0,0,0,0.52);padding:5px 9px;border-radius:6px;line-height:1.9}
+/* Ekranlar */
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;color:#fff}
+#overlay h1{font-size:42px;letter-spacing:4px;color:#7dc155;text-shadow:3px 3px 0 #3a6b22;margin-bottom:8px}
+#overlay p{color:#bbb;text-align:center;margin-bottom:22px;font-size:11px;line-height:2;padding:0 20px}
+.bbtn{padding:11px 32px;font-size:15px;background:#7dc155;border:none;border-radius:6px;cursor:pointer;color:#1a3a0a;font-weight:bold;font-family:'Courier New',monospace;margin:4px}
+.bbtn:hover{background:#9be070}
+#death{display:none;position:fixed;inset:0;background:rgba(140,0,0,0.65);z-index:90;align-items:center;justify-content:center;flex-direction:column;color:#fff}
+#death h2{font-size:42px;color:#ff4444;text-shadow:2px 2px 8px #000;margin-bottom:6px}
+#death p{color:#faa;margin-bottom:18px;font-size:13px}
+#pause{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:50;align-items:center;justify-content:center;flex-direction:column;color:#fff}
+#pause h2{font-size:28px;margin-bottom:18px;color:#7dc155}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="crosshair">✛</div>
+<div id="dflash"></div>
+<div id="notify"></div>
+<div id="bpwrap"><div id="bpbar"></div></div>
+<div id="coords">X:0 Y:0 Z:0<br>Bakılan: —</div>
+<div id="daytime">☀ Gündüz</div>
+<div id="hpbar"></div>
+<div id="hgbar"></div>
+<div id="hotbar"></div>
+<div id="item-label"></div>
+
+<div id="inv-overlay">
+  <div id="inv-panel">
+    <h3>📦 ENVANTER</h3>
+    <div class="ilbl">▶ TÜM EŞYALAR &nbsp;<small style="font-weight:normal;color:#444">(C++ map&lt;string,string&gt; dunya — koordinat→blok)</small></div>
+    <div id="inv-items" class="inv-grid"></div>
+    <div class="ilbl">▶ HIZLI ERİŞİM &nbsp;<small style="font-weight:normal;color:#444">(C# int blokSayisi — sayaç sistemi)</small></div>
+    <div id="inv-hbar" class="inv-grid"></div>
+    <div id="inv-hint">[E]/[ESC] Kapat &nbsp;|&nbsp; Eşyaya tıkla → Seçili slota atar</div>
+  </div>
+</div>
+
+<div id="dpad">
+  <div class="de"></div><div class="db" id="dp-u">▲</div><div class="de"></div>
+  <div class="db" id="dp-l">◀</div><div class="de"></div><div class="db" id="dp-r">▶</div>
+  <div class="de"></div><div class="db" id="dp-d">▼</div><div class="de"></div>
+</div>
+
+<div id="rbtns">
+  <div class="rb" id="rb-inv">🎒</div>
+  <div class="rb" id="rb-eat">🍎</div>
+  <div class="rb" id="rb-plc">🧱</div>
+  <div class="rb" id="rb-atk">⚔</div>
+  <div class="rb" id="rb-jump">⬆</div>
+</div>
+
+<div id="info">
+  WASD/Yönler: Hareket | Space/⬆: Zıpla<br>
+  Sol Tık Tut/⚔: Blok Kır | Sağ Tık/🧱: Koy<br>
+  E/🎒: Envanter | F/🍎: Ye | 1-9: Slot seç<br>
+  Scroll: Hotbar | ESC: Duraklat
+</div>
+
+<div id="overlay">
+  <h1>⛏ MineCraft TR</h1>
+  <p>
+    📌 <b>C++ Özelliği</b>: Koordinat haritası — X,Y,Z → Blok türü (sağ üst)<br>
+    📊 <b>C# Özelliği</b>: Blok sayacı — Her slot'un adedi var, kırınca artar, koyunca azalır<br>
+    🌅 Gece/Gündüz döngüsü &nbsp;|&nbsp; 🔥 Lav hasarı &nbsp;|&nbsp; 🍎 Açlık sistemi<br>
+    ⚔️ Kılıç → Zombi/İskelet saldırı &nbsp;|&nbsp; 🏹 Yay → Ok fırlat<br>
+    🪓 Balta → Ahşap hızlı &nbsp;|&nbsp; ⛏️ Kazma → Taş hızlı &nbsp;|&nbsp; 🪣 Kürek → Toprak hızlı<br>
+    Sol tık TUT → Blok kır animasyonu &nbsp;|&nbsp; Kırılan blok envantere gider!
+  </p>
+  <button class="bbtn" id="startBtn">⛏ OYNA</button>
+</div>
+
+<div id="death">
+  <h2>💀 ÖLDÜN!</h2>
+  <p id="dcause">Düşmanlar tarafından öldürüldün!</p>
+  <button class="bbtn" id="respawnBtn">Yeniden Doğ</button>
+</div>
+
+<div id="pause">
+  <h2>⏸ DURAKLADI</h2>
+  <button class="bbtn" id="resumeBtn">Devam Et</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════
+// C++ esinlenme: map<string,string> dunya; dunya["x,y,z"] = "Tas";
+// Aşağıdaki BLOCKS dizisi blok tiplerini tutar,
+// world Map() ise koordinat → blok indeksi tutar.
+// ══════════════════════════════════════════════════════
+const BLOCKS = [
+  {name:'Çimen',         color:0x7dc155, hard:1},
+  {name:'Toprak',        color:0x8B6914, hard:1},
+  {name:'Taş',           color:0x888888, hard:3},
+  {name:'Kum',           color:0xd4c06a, hard:1},
+  {name:'Ahşap Kütük',   color:0x8B5E3C, hard:2},
+  {name:'Yaprak',        color:0x2d7a1f, hard:1},
+  {name:'Tuğla',         color:0xb85c38, hard:3},
+  {name:'Cam',           color:0xaaddff, hard:1, glass:true},
+  {name:'Kaldırım Taşı', color:0x888070, hard:2},
+  {name:'Kar',           color:0xeef8ff, hard:1},
+  {name:'LAV',           color:0xff3300, hard:1, lava:true},
+  {name:'Tahta Planka',  color:0xc8a464, hard:1},
+  {name:'Kömür Cevheri', color:0x444444, hard:4},
+  {name:'Demir Cevheri', color:0x8b7355, hard:4},
+  {name:'Obsidyen',      color:0x1a0033, hard:8},
+];
+
+// ══════════════════════════════════════════════════════
+// C# esinlenme: string eldekiBlok; int blokSayisi;
+// ITEMS dizisi tüm eşya tiplerini tanımlar.
+// Her hotbar slotu { itemIdx, count } içerir.
+// ══════════════════════════════════════════════════════
+const ITEMS = [
+  // 0-14: bloklar (BLOCKS indexiyle eşleşir)
+  {name:'Çimen',         type:'block',bi:0,  icon:'🟩',desc:'Yerleştir/Kır'},
+  {name:'Toprak',        type:'block',bi:1,  icon:'🟫',desc:'Yerleştir/Kır'},
+  {name:'Taş',           type:'block',bi:2,  icon:'⬜',desc:'Yerleştir/Kır'},
+  {name:'Kum',           type:'block',bi:3,  icon:'🟨',desc:'Yerleştir/Kır'},
+  {name:'Ahşap',         type:'block',bi:4,  icon:'🪵',desc:'Yerleştir/Kır'},
+  {name:'Yaprak',        type:'block',bi:5,  icon:'🍃',desc:'Yerleştir/Kır'},
+  {name:'Tuğla',         type:'block',bi:6,  icon:'🧱',desc:'Yerleştir/Kır'},
+  {name:'Cam',           type:'block',bi:7,  icon:'🔷',desc:'Şeffaf blok'},
+  {name:'Kaldırım Taşı',type:'block',bi:8,  icon:'🪨',desc:'Yerleştir/Kır'},
+  {name:'Kar',           type:'block',bi:9,  icon:'🏔',desc:'Yerleştir/Kır'},
+  {name:'Lav',           type:'block',bi:10, icon:'🌋',desc:'⚠ Hasar verir!'},
+  {name:'Tahta Planka',  type:'block',bi:11, icon:'🟤',desc:'Yerleştir/Kır'},
+  {name:'Kömür Cevheri', type:'block',bi:12, icon:'⬛',desc:'Yerleştir/Kır'},
+  {name:'Demir Cevheri', type:'block',bi:13, icon:'🔶',desc:'Yerleştir/Kır'},
+  {name:'Obsidyen',      type:'block',bi:14, icon:'🟣',desc:'Çok sert!'},
+  // 15-19: aletler
+  {name:'Kılıç',  type:'sword', icon:'⚔️', desc:'Canlılara 5 hasar, 3.5 blok menzil',dmg:5,reach:3.5},
+  {name:'Yay',    type:'bow',   icon:'🏹', desc:'Ok fırlat, 4 hasar',               dmg:4},
+  {name:'Balta',  type:'axe',   icon:'🪓', desc:'Ahşap/Yaprak 4x hızlı kırar',       mult:4,fast:[4,5,11]},
+  {name:'Kazma',  type:'pick',  icon:'⛏️', desc:'Taş/Tuğla/Kömür 4x hızlı kırar',   mult:4,fast:[2,6,8,12,13,14]},
+  {name:'Kürek',  type:'shovel',icon:'🪣', desc:'Toprak/Kum/Kar 4x hızlı kazar',     mult:4,fast:[1,3,9]},
+  // 20: yiyecek
+  {name:'Elma',   type:'food',  icon:'🍎', desc:'4 tokluk puanı geri verir',restore:4},
+];
+
+const HOTBAR_DEF = [15,16,17,18,19,0,1,2,20];
+
+// ══════════════════════════════════════════════════════
+// THREE.JS KURULUM
+// ══════════════════════════════════════════════════════
+const canvas = document.getElementById('canvas');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb,28,72);
+const camera = new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,200);
+
+// Işıklar
+const ambLight = new THREE.AmbientLight(0xb0c8ff,0.5);
+scene.add(ambLight);
+const sunLight = new THREE.DirectionalLight(0xffffff,1.2);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = sunLight.shadow.mapSize.height = 1024;
+Object.assign(sunLight.shadow.camera,{near:.5,far:200,left:-50,right:50,top:50,bottom:-50});
+scene.add(sunLight);
+
+// Güneş ve Ay
+const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(2.2,8,8),new THREE.MeshBasicMaterial({color:0xffee77}));
+const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(1.6,8,8),new THREE.MeshBasicMaterial({color:0xddeeff}));
+scene.add(sunMesh,moonMesh);
+
+// ══════════════════════════════════════════════════════
+// DÜNYA (C++ koordinat haritası)
+// C++: map<string,string> dunya; dunya["0,0,0"] = "Tas";
+// ══════════════════════════════════════════════════════
+const world = new Map();   // "x,y,z" → blockIndex
+const meshMap = new Map();
+const bGeo = new THREE.BoxGeometry(1,1,1);
+const matCache = {};
+
+function bMat(bi){
+  if(!matCache[bi]){
+    const bd=BLOCKS[bi];
+    const m = bd.glass
+      ? new THREE.MeshLambertMaterial({color:bd.color,transparent:true,opacity:.48,depthWrite:false})
+      : new THREE.MeshLambertMaterial({color:bd.color});
+    if(bd.lava) m.emissive = new THREE.Color(0xff1100);
+    matCache[bi]=m;
+  }
+  return matCache[bi];
+}
+
+const bk = (x,y,z) => `${Math.round(x)},${Math.round(y)},${Math.round(z)}`;
+
+function addBlock(x,y,z,bi){
+  const k=bk(x,y,z);
+  if(world.has(k)) return;
+  world.set(k,bi);
+  const m=new THREE.Mesh(bGeo,bMat(bi));
+  m.position.set(Math.round(x),Math.round(y),Math.round(z));
+  m.castShadow = m.receiveShadow = !BLOCKS[bi].glass;
+  scene.add(m); meshMap.set(k,m);
+}
+
+function removeBlock(x,y,z){
+  const k=bk(x,y,z);
+  if(!world.has(k)) return null;
+  const bi=world.get(k);
+  world.delete(k);
+  const m=meshMap.get(k);
+  if(m) scene.remove(m);
+  meshMap.delete(k);
+  return bi;
+}
+
+function getH(x,z){
+  return Math.floor(3+Math.sin(x*.4)*2+Math.cos(z*.3)*2+Math.sin(x*.15+z*.2)*3);
+}
+
+// Dünya üretimi
+// C++ eşdeğeri: dunya["x,y,z"] = "blokTipi";
+for(let x=0;x<32;x++) for(let z=0;z<32;z++){
+  const h=getH(x,z);
+  addBlock(x,h,z,0);
+  for(let y=h-1;y>=h-3;y--) addBlock(x,y,z,1);
+  for(let y=h-4;y>=0;y--) addBlock(x,y,z,2);
+  // Kar bölgesi
+  if(x<7&&z<7) addBlock(x,h,z,9);
+  // Lav gölü (tehlikeli!)
+  if(x>=14&&x<=17&&z>=14&&z<=17) addBlock(x,3,z,10);
+  // Demir cevheri yer yer
+  if((x+z)%7===0&&h>4) addBlock(x,Math.max(1,h-5),z,13);
+}
+
+function addTree(tx,tz){
+  const b=getH(tx,tz)+1;
+  for(let y=b;y<b+4;y++) addBlock(tx,y,tz,4);
+  for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++) for(let dy=0;dy<=2;dy++){
+    if(Math.abs(dx)===2&&Math.abs(dz)===2&&dy<1) continue;
+    addBlock(tx+dx,b+3+dy,tz+dz,5);
+  }
+}
+[[4,4],[11,20],[22,7],[25,25],[8,27],[18,13],[3,17],[28,11],[15,5],[20,28]].forEach(([x,z])=>addTree(x,z));
+
+// ══════════════════════════════════════════════════════
+// SES (Web Audio API)
+// ══════════════════════════════════════════════════════
+let actx=null;
+function initAudio(){if(!actx) actx=new(window.AudioContext||window.webkitAudioContext)();}
+function snd(type){
+  if(!actx) return;
+  try{
+    const g=actx.createGain(),o=actx.createOscillator(),now=actx.currentTime;
+    o.connect(g);g.connect(actx.destination);
+    const p={
+      place: ()=>{o.type='square';o.frequency.value=180;g.gain.setValueAtTime(.08,now);g.gain.exponentialRampToValueAtTime(.001,now+.09);o.start(now);o.stop(now+.09);},
+      break: ()=>{o.type='sawtooth';o.frequency.setValueAtTime(160,now);o.frequency.linearRampToValueAtTime(70,now+.18);g.gain.setValueAtTime(.12,now);g.gain.exponentialRampToValueAtTime(.001,now+.2);o.start(now);o.stop(now+.2);},
+      sword: ()=>{o.type='sawtooth';o.frequency.setValueAtTime(500,now);o.frequency.exponentialRampToValueAtTime(100,now+.12);g.gain.setValueAtTime(.15,now);g.gain.exponentialRampToValueAtTime(.001,now+.15);o.start(now);o.stop(now+.15);},
+      arrow: ()=>{o.type='sine';o.frequency.setValueAtTime(900,now);o.frequency.exponentialRampToValueAtTime(300,now+.1);g.gain.setValueAtTime(.08,now);g.gain.exponentialRampToValueAtTime(.001,now+.12);o.start(now);o.stop(now+.12);},
+      hurt:  ()=>{o.type='sine';o.frequency.value=350;g.gain.setValueAtTime(.2,now);g.gain.exponentialRampToValueAtTime(.001,now+.25);o.start(now);o.stop(now+.25);},
+      eat:   ()=>{o.type='sine';o.frequency.setValueAtTime(500,now);o.frequency.exponentialRampToValueAtTime(800,now+.1);g.gain.setValueAtTime(.07,now);g.gain.exponentialRampToValueAtTime(.001,now+.15);o.start(now);o.stop(now+.15);},
+      die:   ()=>{o.type='sawtooth';o.frequency.setValueAtTime(300,now);o.frequency.linearRampToValueAtTime(50,now+.5);g.gain.setValueAtTime(.2,now);g.gain.exponentialRampToValueAtTime(.001,now+.6);o.start(now);o.stop(now+.6);}
+    };
+    if(p[type]) p[type]();
+  }catch(e){}
+}
+
+// ══════════════════════════════════════════════════════
+// GECE/GÜNDÜZ
+// ══════════════════════════════════════════════════════
+let gTime=.25; // 0=şafak, 0.25=öğle, 0.5=akşam, 0.75=gece
+const DAY=180;
+const DK=[
+  {t:.00,sky:'#ff8040',amb:'#ffa070',ai:.22,si:.5, lbl:'🌅 Şafak'},
+  {t:.25,sky:'#87ceeb',amb:'#b0c8ff',ai:.55,si:1.2,lbl:'☀ Gündüz'},
+  {t:.50,sky:'#ff5020',amb:'#ff7040',ai:.22,si:.4, lbl:'🌇 Gün Batımı'},
+  {t:.75,sky:'#040714',amb:'#101040',ai:.07,si:.0, lbl:'🌙 Gece'},
+  {t:1.0,sky:'#ff8040',amb:'#ffa070',ai:.22,si:.5, lbl:'🌅 Şafak'},
+];
+function lh(a,b,t){const A=new THREE.Color(a),B=new THREE.Color(b);return new THREE.Color(A.r+(B.r-A.r)*t,A.g+(B.g-A.g)*t,A.b+(B.b-A.b)*t);}
+function lr(a,b,t){return a+(b-a)*t;}
+function updateDN(dt){
+  gTime=(gTime+dt/DAY)%1;
+  let k1=DK[DK.length-2],k2=DK[DK.length-1];
+  for(let i=0;i<DK.length-1;i++) if(gTime>=DK[i].t&&gTime<DK[i+1].t){k1=DK[i];k2=DK[i+1];break;}
+  const a=(gTime-k1.t)/(k2.t-k1.t);
+  const sky=lh(k1.sky,k2.sky,a);
+  scene.background=sky; scene.fog.color.copy(sky);
+  ambLight.color=lh(k1.amb,k2.amb,a); ambLight.intensity=lr(k1.ai,k2.ai,a);
+  sunLight.intensity=lr(k1.si,k2.si,a);
+  const ang=(gTime-.25)*Math.PI*2;
+  sunMesh.position.set(16+Math.cos(ang)*48,22+Math.sin(ang)*48,16);
+  moonMesh.position.set(16-Math.cos(ang)*48,22-Math.sin(ang)*48,16);
+  sunLight.position.copy(sunMesh.position);
+  document.getElementById('daytime').textContent=a>.5?k2.lbl:k1.lbl;
+}
+
+// ══════════════════════════════════════════════════════
+// MOBLAR
+// ══════════════════════════════════════════════════════
+const mobs=[];
+const MD=[
+  {name:'Zombi',  color:0x2d8b2d,eye:0xff2222,hp:10,spd:2.8,dmg:.5},
+  {name:'İskelet',color:0xd8d8c8,eye:0x4444ff,hp:7, spd:3.2,dmg:.4},
+  {name:'Creeper',color:0x3a8c3a,eye:0x222222,hp:8, spd:2.5,dmg:3.0},
+];
+class Mob{
+  constructor(x,y,z,ti=0){
+    this.def=MD[ti]; this.hp=this.def.hp; this.mhp=this.def.hp;
+    this.vel=new THREE.Vector3(); this.dead=false; this.dt=0; this.wt=Math.random()*3;
+    this.wd={x:Math.random()-.5,z:Math.random()-.5};
+    const mat=new THREE.MeshLambertMaterial({color:this.def.color});
+    const em=new THREE.MeshLambertMaterial({color:this.def.eye});
+    this.g=new THREE.Group();
+    const bd=new THREE.Mesh(new THREE.BoxGeometry(.65,1,.35),mat);
+    const hd=new THREE.Mesh(new THREE.BoxGeometry(.55,.55,.55),mat); hd.position.y=.78;
+    const eg=new THREE.BoxGeometry(.12,.1,.08);
+    const el=new THREE.Mesh(eg,em); el.position.set(-.14,.82,.3);
+    const er=new THREE.Mesh(eg,em); er.position.set(.14,.82,.3);
+    this.g.add(bd,hd,el,er); this.g.position.set(x,y,z); scene.add(this.g);
+    this.hpc=document.createElement('canvas'); this.hpc.width=64; this.hpc.height=8;
+    this.hpt=new THREE.CanvasTexture(this.hpc);
+    const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:this.hpt,depthTest:false}));
+    sp.scale.set(1.5,.2,1); sp.position.y=1.7; this.g.add(sp); this.drawHP();
+  }
+  drawHP(){
+    const c=this.hpc.getContext('2d'); c.clearRect(0,0,64,8);
+    c.fillStyle='#333'; c.fillRect(0,0,64,8);
+    const p=this.hp/this.mhp;
+    c.fillStyle=p>.5?'#44ff44':p>.25?'#ffff44':'#ff3333';
+    c.fillRect(1,1,Math.floor(62*p),6); this.hpt.needsUpdate=true;
+  }
+  hit(d){this.hp-=d; this.drawHP(); if(this.hp<=0) this.die();}
+  die(){
+    if(this.dead) return; this.dead=true; scene.remove(this.g); snd('die');
+    notify('☠ '+this.def.name+' öldürüldü!');
+    const i=mobs.indexOf(this); if(i!==-1) mobs.splice(i,1);
+  }
+  update(dt){
+    if(this.dead) return;
+    const gp=this.g.position,cp=camera.position;
+    const dx=cp.x-gp.x,dz=cp.z-gp.z,dist=Math.sqrt(dx*dx+dz*dz);
+    let mx=0,mz=0;
+    const nightBoost=gTime>.45&&gTime<.95?1.6:1;
+    if(dist<18){mx=dx/dist;mz=dz/dist;this.g.lookAt(new THREE.Vector3(cp.x,gp.y,cp.z));}
+    else{this.wt-=dt;if(this.wt<=0){this.wt=2+Math.random()*3;this.wd={x:Math.random()-.5,z:Math.random()-.5};}mx=this.wd.x;mz=this.wd.z;}
+    this.vel.y-=22*dt;
+    const spd=this.def.spd*nightBoost;
+    const nx=gp.x+mx*spd*dt,nz=gp.z+mz*spd*dt;
+    if(!world.has(bk(nx,gp.y-.5,gp.z))&&!world.has(bk(nx,gp.y+.4,gp.z))) gp.x=nx;
+    if(!world.has(bk(gp.x,gp.y-.5,nz))&&!world.has(bk(gp.x,gp.y+.4,nz))) gp.z=nz;
+    const ny=gp.y+this.vel.y*dt;
+    if(!world.has(bk(gp.x,ny-.5,gp.z))) gp.y=ny;
+    else{if(this.vel.y<0)this.vel.y=0;gp.y=Math.round(gp.y-.5)+1.0;}
+    if(gp.y<-10){gp.y=getH(Math.round(gp.x),Math.round(gp.z))+1.5;this.vel.y=0;}
+    if(dist<1.3&&!pSt.dead){this.dt-=dt;if(this.dt<=0){hitPlayer(this.def.dmg,'mob');this.dt=.6;}}
+  }
+}
+function spawnMobs(){
+  const pts=[[3,28],[7,14],[21,5],[27,21],[14,27],[10,9],[24,15],[5,22],[18,3],[29,8],[12,3],[26,5]];
+  pts.forEach(([x,z],i)=>mobs.push(new Mob(x,getH(x,z)+1.5,z,i%3)));
+}
+
+// ══════════════════════════════════════════════════════
+// OKLAR
+// ══════════════════════════════════════════════════════
+const arrows=[];
+const aGeo=new THREE.CylinderGeometry(.04,.04,.78,6); aGeo.rotateX(Math.PI/2);
+const aMat=new THREE.MeshLambertMaterial({color:0xd4a44c});
+function shootArrow(){
+  const m=new THREE.Mesh(aGeo,aMat);
+  m.position.copy(camera.position);
+  const d=new THREE.Vector3(); camera.getWorldDirection(d);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),d);
+  arrows.push({mesh:m,vel:d.clone().multiplyScalar(28),life:5,dmg:4});
+  scene.add(m); snd('arrow');
+}
+function updateArrows(dt){
+  for(let i=arrows.length-1;i>=0;i--){
+    const a=arrows[i]; a.life-=dt; a.vel.y-=12*dt;
+    const np=a.mesh.position.clone().addScaledVector(a.vel,dt);
+    if(world.has(bk(np.x,np.y,np.z))||a.life<=0){scene.remove(a.mesh);arrows.splice(i,1);continue;}
+    let hit=false;
+    for(const mob of mobs){if(mob.g.position.distanceTo(np)<.85){mob.hit(a.dmg);scene.remove(a.mesh);arrows.splice(i,1);hit=true;break;}}
+    if(!hit){
+      a.mesh.position.copy(np);
+      const vn=a.vel.clone().normalize();
+      if(vn.length()>.1) a.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),vn);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// OYUNCU
+// ══════════════════════════════════════════════════════
+const PH=1.75;
+const pSt={
+  hp:20,mhp:20,hunger:20,mhunger:20,
+  vel:new THREE.Vector3(),onGround:false,
+  yaw:0,pitch:0,dead:false,deathMsg:'',
+  atkCD:0,bowCD:0,hungerT:0,lavaT:0
+};
+
+// ══════════════════════════════════════════════════════
+// C# esinlenme: int blokSayisi = 32;
+// Hotbar: { itemIdx, count } dizisi
+// Her eşyanın adedi C# sayacı gibi izlenir.
+// ══════════════════════════════════════════════════════
+let hotbar = HOTBAR_DEF.map(ii=>({
+  itemIdx:ii,
+  count:ITEMS[ii].type==='block'?32:ITEMS[ii].type==='food'?5:Infinity
+}));
+let selSlot=0;
+
+function getSlot(){return hotbar[selSlot];}
+function getItem(){const s=getSlot();return s?ITEMS[s.itemIdx]:null;}
+
+// C# eşdeğeri: blokSayisi++  (kırılan blok envantere gider)
+function addToInv(bi){
+  const ex=hotbar.find(s=>s&&s.itemIdx===bi&&s.count!==Infinity&&s.count<64);
+  if(ex){ex.count++;buildHB();return;}
+  const empty=hotbar.findIndex(s=>!s);
+  if(empty!==-1){hotbar[empty]={itemIdx:bi,count:1};buildHB();}
+  else notify('📦 Envanter dolu!');
+}
+
+// C# eşdeğeri: blokSayisi--  (koyunca azalır)
+// if(blokSayisi == 0) Console.WriteLine("Elindeki bloklar bitti!");
+function useBlockSlot(){
+  const s=getSlot(); if(!s) return false;
+  if(s.count<=0){notify('❌ '+ITEMS[s.itemIdx].name+' bitti! Çevrede blok kır.');return false;}
+  if(s.count!==Infinity){
+    s.count--;
+    if(s.count===0){
+      // C# uyarısı: "Elindeki bloklar bitti!"
+      notify('❌ '+ITEMS[s.itemIdx].name+' bitti! (C# Uyarısı)');
+      hotbar[selSlot]=null; buildHB();
+    } else if(s.count<=5) notify('⚠ '+ITEMS[s.itemIdx].name+': '+s.count+' kaldı!');
+  }
+  return true;
+}
+
+// Fizik
+function pColl(x,y,z){
+  const r=.3,ys=[y-PH,y-PH*.5,y-.05];
+  for(const cy of ys) for(const dx of[-r,r]) for(const dz of[-r,r])
+    if(world.has(bk(x+dx,cy,z+dz))) return true;
+  return false;
+}
+function pGnd(x,y,z){
+  const r=.28;
+  for(const dx of[-r,r]) for(const dz of[-r,r]) if(world.has(bk(x+dx,y-PH-.05,z+dz))) return true;
+  return false;
+}
+
+function hitPlayer(dmg,cause){
+  if(pSt.dead) return;
+  pSt.hp=Math.max(0,pSt.hp-dmg); updateHP(); snd('hurt');
+  const fl=document.getElementById('dflash'); fl.classList.add('on'); setTimeout(()=>fl.classList.remove('on'),140);
+  if(pSt.hp<=0){
+    pSt.deathMsg = cause==='fall'?'Yüksekten düştün!':cause==='hunger'?'Açlıktan öldün!':cause==='lava'?'Lavda yandın!':'Düşmanlar tarafından öldürüldün!';
+    snd('die'); playerDie();
+  }
+}
+function playerDie(){
+  pSt.dead=true; isPlaying=false;
+  document.getElementById('dcause').textContent=pSt.deathMsg;
+  document.getElementById('death').style.display='flex';
+  document.exitPointerLock();
+}
+function respawn(){
+  pSt.dead=false; pSt.hp=pSt.mhp; pSt.hunger=pSt.mhunger;
+  pSt.vel.set(0,0,0); camera.position.set(16,15,16);
+  hotbar=HOTBAR_DEF.map(ii=>({itemIdx:ii,count:ITEMS[ii].type==='block'?32:ITEMS[ii].type==='food'?5:Infinity}));
+  updateHP(); updateHG(); buildHB();
+  document.getElementById('death').style.display='none';
+  isPlaying=true; if(!mob()) canvas.requestPointerLock();
+}
+
+// HUD
+function updateHP(){
+  const b=document.getElementById('hpbar'); b.innerHTML='';
+  for(let i=0;i<pSt.mhp/2;i++){const h=document.createElement('span');h.className='heart';h.textContent=i<Math.ceil(pSt.hp/2)?'❤️':'🖤';b.appendChild(h);}
+}
+function updateHG(){
+  const b=document.getElementById('hgbar'); b.innerHTML='';
+  for(let i=0;i<pSt.mhunger/2;i++){const f=document.createElement('span');f.className='food';f.textContent=i<Math.ceil(pSt.hunger/2)?'🍗':'🦴';b.appendChild(f);}
+}
+let _nt;
+function notify(msg){
+  const e=document.getElementById('notify');e.textContent=msg;e.classList.add('show');
+  clearTimeout(_nt);_nt=setTimeout(()=>e.classList.remove('show'),2800);
+}
+
+// C++ özelliği: cout << "Konum: " << koordinat << " | Blok Türü: " << blok << endl;
+function updateCoords(){
+  const x=camera.position.x.toFixed(1),y=camera.position.y.toFixed(1),z=camera.position.z.toFixed(1);
+  const hit=tgt();
+  let bn='—',bc='';
+  if(hit){
+    const bx=Math.round(hit.object.position.x),by=Math.round(hit.object.position.y),bz=Math.round(hit.object.position.z);
+    const bi=world.get(bk(bx,by,bz));
+    if(bi!=null){bn=BLOCKS[bi].name;bc=` [${bx},${by},${bz}]`;}
+  }
+  document.getElementById('coords').innerHTML=`X:${x} Y:${y} Z:${z}<br>Bakılan: ${bn}${bc}`;
+}
+
+function buildHB(){
+  const el=document.getElementById('hotbar'); el.innerHTML='';
+  hotbar.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='hslot'+(i===selSlot?' active':'');d.id='hs'+i;
+    if(s){
+      const it=ITEMS[s.itemIdx];
+      // C# blokSayisi → hotbar üzerinde sayaç göstergesi
+      d.innerHTML=`<div class="hslot-icon">${it.icon}</div><div class="hslot-name">${it.name}</div>`;
+      if(s.count!==Infinity) d.innerHTML+=`<div class="hslot-cnt">${s.count}</div>`;
+    }
+    d.addEventListener('click',()=>selS(i)); el.appendChild(d);
+  });
+  updateLabel();
+}
+function selS(i){
+  document.getElementById('hs'+selSlot)?.classList.remove('active');
+  selSlot=i; document.getElementById('hs'+i)?.classList.add('active'); updateLabel();
+}
+function updateLabel(){
+  const it=getItem();
+  document.getElementById('item-label').textContent=it?it.icon+' '+it.name+(it.desc?' — '+it.desc:''):'';
+}
+
+// ══════════════════════════════════════════════════════
+// ENVANTER UI
+// ══════════════════════════════════════════════════════
+let invOpen=false;
+function openInv(){
+  invOpen=true; document.getElementById('inv-overlay').classList.add('open');
+  document.exitPointerLock();
+  const ig=document.getElementById('inv-items'); ig.innerHTML='';
+  ITEMS.forEach((it,i)=>{
+    const s=document.createElement('div'); s.className='islot';
+    const ex=hotbar.find(sl=>sl&&sl.itemIdx===i);
+    const cnt=ex?(ex.count===Infinity?'∞':ex.count):0;
+    s.innerHTML=`${it.icon}<span class="itip">${it.name}${it.desc?'<br>'+it.desc:''}<br>Envanterde:${cnt===0?'Yok':cnt}</span>`;
+    if(ex) s.innerHTML+=`<span class="islot-cnt">${ex.count===Infinity?'∞':ex.count}</span>`;
+    s.addEventListener('click',()=>{
+      hotbar[selSlot]={itemIdx:i,count:ITEMS[i].type==='block'?32:ITEMS[i].type==='food'?5:Infinity};
+      buildHB(); closeInv();
+    });
+    ig.appendChild(s);
+  });
+  const hg=document.getElementById('inv-hbar'); hg.innerHTML='';
+  hotbar.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className='islot'+(i===selSlot?' sel':'');
+    if(s){const it=ITEMS[s.itemIdx];d.innerHTML=`${it.icon}<span class="islot-cnt">${s.count===Infinity?'∞':s.count}</span>`;}
+    d.addEventListener('click',()=>{selS(i);buildHB();closeInv();});
+    hg.appendChild(d);
+  });
+}
+function closeInv(){
+  invOpen=false; document.getElementById('inv-overlay').classList.remove('open');
+  if(isPlaying&&!mob()) canvas.requestPointerLock();
+}
+
+// ══════════════════════════════════════════════════════
+// RAYCAST & BLOK KIRMA (basılı tut animasyonu)
+// ══════════════════════════════════════════════════════
+const rc=new THREE.Raycaster(); rc.near=.5; rc.far=7;
+function tgt(){
+  const d=new THREE.Vector3(); camera.getWorldDirection(d); rc.set(camera.position,d);
+  const hits=rc.intersectObjects([...meshMap.values()]);
+  return hits.length?hits[0]:null;
+}
+
+function getBreakTime(bi,item){
+  const h=BLOCKS[bi].hard||1;
+  if(!item) return h*.7;
+  if(item.fast?.includes(bi)) return (h*.7)/item.mult;
+  if(item.type==='sword') return h*1.0;
+  return h*.7;
+}
+
+let brk={active:false,k:null,timer:0,req:0,pos:null};
+function startBreak(){
+  const hit=tgt(); if(!hit) return;
+  const p=hit.object.position,k=bk(p.x,p.y,p.z);
+  const bi=world.get(k); if(bi==null) return;
+  if(BLOCKS[bi].lava){notify('🔥 Lav kırılamaz!');return;}
+  brk={active:true,k,timer:0,req:getBreakTime(bi,getItem()),pos:p.clone()};
+  document.getElementById('bpwrap').style.display='block';
+  document.getElementById('bpbar').style.width='0%';
+}
+function cancelBreak(){
+  brk.active=false;
+  document.getElementById('bpwrap').style.display='none';
+}
+function updateBreak(dt){
+  if(!brk.active) return;
+  const hit=tgt();
+  if(!hit||bk(hit.object.position.x,hit.object.position.y,hit.object.position.z)!==brk.k){cancelBreak();return;}
+  brk.timer+=dt;
+  document.getElementById('bpbar').style.width=(Math.min(brk.timer/brk.req,1)*100)+'%';
+  if(brk.timer>=brk.req){
+    const bi=removeBlock(brk.pos.x,brk.pos.y,brk.pos.z);
+    if(bi!=null){
+      // C# eşdeğeri: blokSayisi++ (kırılan blok envantere gider)
+      addToInv(bi); snd('break');
+      // Yaprak kırınca elma düşer
+      if(bi===5&&Math.random()<.3){
+        const ap=hotbar.find(s=>s&&s.itemIdx===20);
+        if(ap){ap.count++;buildHB();notify('🍎 Elma düştü!');}
+        else{const ei=hotbar.findIndex(s=>!s);if(ei!==-1){hotbar[ei]={itemIdx:20,count:1};buildHB();notify('🍎 Elma düştü!');}}
+      }
+    }
+    cancelBreak();
+    if(mouseHeld) setTimeout(startBreak,50);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// KULLANMA / SALDIRI
+// ══════════════════════════════════════════════════════
+function doUse(){
+  const item=getItem();
+  if(!item){startBreak();return;}
+  if(item.type==='sword'){
+    if(pSt.atkCD>0) return; pSt.atkCD=.45;
+    let best=null,bestD=item.reach||3.5;
+    for(const m of mobs){const d=m.g.position.distanceTo(camera.position);if(d<bestD){bestD=d;best=m;}}
+    if(best){best.hit(item.dmg||5);snd('sword');notify('⚔ '+best.def.name+' → '+item.dmg+' hasar!');}
+    else{snd('sword');notify('💨 Iskaladı!');}
+  } else if(item.type==='bow'){
+    if(pSt.bowCD>0) return; pSt.bowCD=1.1;
+    shootArrow(); notify('🏹 Ok atıldı!');
+  } else if(item.type==='food'){
+    eatFood();
+  } else {
+    startBreak();
+  }
+}
+function doPlace(){
+  const item=getItem(); if(!item||item.type!=='block') return;
+  const hit=tgt(); if(!hit) return;
+  const p=hit.object.position,n=hit.face.normal;
+  const nx=Math.round(p.x+n.x),ny=Math.round(p.y+n.y),nz=Math.round(p.z+n.z);
+  const px=Math.round(camera.position.x),pz=Math.round(camera.position.z);
+  const py=Math.round(camera.position.y-.5);
+  if(nx===px&&nz===pz&&(ny===py||ny===py-1)) return;
+  if(!useBlockSlot()) return; // C# blokSayisi--
+  addBlock(nx,ny,nz,item.bi); snd('place');
+}
+function eatFood(){
+  const s=getSlot(); if(!s) return;
+  const it=ITEMS[s.itemIdx]; if(it.type!=='food') return;
+  if(pSt.hunger>=pSt.mhunger){notify('🍗 Zaten tokssun!');return;}
+  if(s.count<=0){notify('❌ Yiyecek kalmadı!');return;}
+  pSt.hunger=Math.min(pSt.mhunger,pSt.hunger+(it.restore||4));
+  s.count--;
+  if(s.count===0){notify('❌ '+it.name+' bitti!');hotbar[selSlot]=null;}
+  buildHB(); updateHG(); snd('eat'); notify('😋 +'+it.restore+' tokluk!');
+}
+
+// ══════════════════════════════════════════════════════
+// GİRİŞ (Hem Bilgisayar Hem Telefon)
+// ══════════════════════════════════════════════════════
+const keys={};
+let isPlaying=false,isPaused=false,mouseHeld=false;
+const mob=()=>'ontouchstart' in window||navigator.maxTouchPoints>0;
+
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true; initAudio();
+  if(!isPlaying) return;
+  if(e.code==='KeyE'){invOpen?closeInv():openInv();return;}
+  if(e.code==='KeyF'){eatFood();return;}
+  if(e.code==='Escape'){if(invOpen){closeInv();return;}togglePause();return;}
+  for(let i=0;i<9;i++) if(e.code==='Digit'+(i+1)) selS(i);
+});
+document.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+document.addEventListener('mousemove',e=>{
+  if(!isPlaying||isPaused||invOpen||!document.pointerLockElement) return;
+  pSt.yaw-=e.movementX*.0022; pSt.pitch-=e.movementY*.0022;
+  pSt.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,pSt.pitch));
+});
+canvas.addEventListener('mousedown',e=>{
+  if(!isPlaying||isPaused||invOpen) return;
+  initAudio();
+  if(e.button===0){mouseHeld=true;doUse();}
+  if(e.button===2) doPlace();
+});
+canvas.addEventListener('mouseup',e=>{if(e.button===0){mouseHeld=false;cancelBreak();}});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('wheel',e=>{
+  if(!isPlaying||invOpen) return;
+  selS(((selSlot+(e.deltaY>0?1:-1))%9+9)%9);
+});
+
+// Mobil kamera (sağ yarı dokunuş)
+let tlook=null;
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault(); initAudio();
+  for(const t of e.changedTouches) if(t.clientX>innerWidth*.42) tlook={id:t.identifier,x:t.clientX,y:t.clientY};
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches) if(tlook&&t.identifier===tlook.id){
+    pSt.yaw-=(t.clientX-tlook.x)*.0044; pSt.pitch-=(t.clientY-tlook.y)*.0044;
+    pSt.pitch=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,pSt.pitch));
+    tlook.x=t.clientX; tlook.y=t.clientY;
+  }
+},{passive:false});
+canvas.addEventListener('touchend',e=>{for(const t of e.changedTouches) if(tlook&&t.identifier===tlook.id) tlook=null;});
+
+// D-Pad kurulumu (PC + Mobil)
+function dBtn(id,code){
+  const el=document.getElementById(id);
+  el.addEventListener('touchstart',e=>{e.preventDefault();keys[code]=true;el.classList.add('pressed');},{passive:false});
+  el.addEventListener('touchend',  e=>{e.preventDefault();keys[code]=false;el.classList.remove('pressed');},{passive:false});
+  el.addEventListener('mousedown', ()=>{keys[code]=true;el.classList.add('pressed');});
+  el.addEventListener('mouseup',   ()=>{keys[code]=false;el.classList.remove('pressed');});
+  el.addEventListener('mouseleave',()=>{keys[code]=false;el.classList.remove('pressed');});
+}
+dBtn('dp-u','KeyW'); dBtn('dp-d','KeyS'); dBtn('dp-l','KeyA'); dBtn('dp-r','KeyD');
+
+// Sağ butonlar (PC + Mobil)
+function rBtn(id,fn){
+  const el=document.getElementById(id);
+  el.addEventListener('touchstart',e=>{e.preventDefault();initAudio();fn(true);el.classList.add('pressed');},{passive:false});
+  el.addEventListener('touchend',  e=>{e.preventDefault();fn(false);el.classList.remove('pressed');},{passive:false});
+  el.addEventListener('mousedown', ()=>{initAudio();fn(true);el.classList.add('pressed');});
+  el.addEventListener('mouseup',   ()=>{fn(false);el.classList.remove('pressed');});
+  el.addEventListener('mouseleave',()=>{fn(false);el.classList.remove('pressed');});
+}
+rBtn('rb-jump', s=>{ if(s) keys['Space']=true; else keys['Space']=false; });
+rBtn('rb-atk',  s=>{ if(s){doUse();} else cancelBreak(); });
+rBtn('rb-plc',  s=>{ if(s) doPlace(); });
+rBtn('rb-inv',  s=>{ if(s){invOpen?closeInv():openInv();} });
+rBtn('rb-eat',  s=>{ if(s) eatFood(); });
+
+// ══════════════════════════════════════════════════════
+// OYUN AKIŞI
+// ══════════════════════════════════════════════════════
+document.getElementById('startBtn').addEventListener('click',()=>{
+  document.getElementById('overlay').style.display='none';
+  isPlaying=true; camera.position.set(16,15,16); pSt.vel.set(0,0,0);
+  buildHB(); updateHP(); updateHG(); spawnMobs();
+  if(!mob()) canvas.requestPointerLock();
+  requestAnimationFrame(loop);
+});
+document.getElementById('resumeBtn').addEventListener('click',togglePause);
+document.getElementById('respawnBtn').addEventListener('click',respawn);
+
+document.addEventListener('pointerlockchange',()=>{
+  if(!document.pointerLockElement&&isPlaying&&!isPaused&&!invOpen) togglePause();
+});
+function togglePause(){
+  isPaused=!isPaused;
+  const pm=document.getElementById('pause');
+  if(isPaused){pm.style.display='flex';document.exitPointerLock();}
+  else{pm.style.display='none';if(!mob()) canvas.requestPointerLock();}
+}
+
+// ══════════════════════════════════════════════════════
+// ANA DÖNGÜ
+// ══════════════════════════════════════════════════════
+let lastT=0;
+function loop(t){
+  requestAnimationFrame(loop);
+  if(!isPlaying||isPaused) return;
+  const dt=Math.min((t-lastT)/1000,.05); lastT=t;
+  if(!pSt.dead){
+    updatePlayer(dt);
+    updateBreak(dt);
+    pSt.atkCD=Math.max(0,pSt.atkCD-dt);
+    pSt.bowCD=Math.max(0,pSt.bowCD-dt);
+    // Açlık sistemi
+    pSt.hungerT+=dt;
+    if(pSt.hungerT>=30){pSt.hungerT=0;pSt.hunger=Math.max(0,pSt.hunger-1);updateHG();}
+    if(pSt.hunger===0) hitPlayer(.5,'hunger');
+    // Lav hasarı
+    if(world.get(bk(camera.position.x,camera.position.y-PH+.6,camera.position.z))===10){
+      pSt.lavaT+=dt; if(pSt.lavaT>=.5){pSt.lavaT=0;hitPlayer(1,'lava');notify('🔥 Lavda yanıyorsun!');}
+    } else pSt.lavaT=0;
+    // C++ koordinat göstergesi
+    updateCoords();
+  }
+  updateDN(dt);
+  for(const m of [...mobs]) m.update(dt);
+  updateArrows(dt);
+  renderer.render(scene,camera);
+}
+
+function updatePlayer(dt){
+  const fwd=new THREE.Vector3(-Math.sin(pSt.yaw),0,-Math.cos(pSt.yaw));
+  const rgt=new THREE.Vector3(Math.cos(pSt.yaw),0,-Math.sin(pSt.yaw));
+  let mx=0,mz=0;
+  if(keys['KeyW']||keys['ArrowUp'])   {mx+=fwd.x;mz+=fwd.z;}
+  if(keys['KeyS']||keys['ArrowDown']) {mx-=fwd.x;mz-=fwd.z;}
+  if(keys['KeyA']||keys['ArrowLeft']) {mx-=rgt.x;mz-=rgt.z;}
+  if(keys['KeyD']||keys['ArrowRight']){mx+=rgt.x;mz+=rgt.z;}
+  const ln=Math.sqrt(mx*mx+mz*mz); if(ln>0){mx/=ln;mz/=ln;}
+  const spd=pSt.hunger>4?6:3; // Açken yavaşla
+  pSt.vel.x=mx*spd; pSt.vel.z=mz*spd; pSt.vel.y-=26*dt;
+  if(keys['Space']&&pSt.onGround) pSt.vel.y=9.5;
+  const cx=camera.position.x,cy=camera.position.y,cz=camera.position.z;
+  const nx=cx+pSt.vel.x*dt; if(!pColl(nx,cy,cz)) camera.position.x=nx; else pSt.vel.x=0;
+  const nz=cz+pSt.vel.z*dt; if(!pColl(camera.position.x,cy,nz)) camera.position.z=nz; else pSt.vel.z=0;
+  const ny=cy+pSt.vel.y*dt;
+  if(!pColl(camera.position.x,ny,camera.position.z)){camera.position.y=ny;pSt.onGround=false;}
+  else{
+    if(pSt.vel.y<-8) hitPlayer(Math.floor(-pSt.vel.y-8)*.5,'fall');
+    if(pSt.vel.y<0) pSt.onGround=true; pSt.vel.y=0;
+  }
+  if(pGnd(camera.position.x,camera.position.y,camera.position.z)) pSt.onGround=true;
+  if(camera.position.y<-20){camera.position.set(16,15,16);pSt.vel.set(0,0,0);hitPlayer(4,'fall');}
+  camera.rotation.order='YXZ'; camera.rotation.y=pSt.yaw; camera.rotation.x=pSt.pitch;
+}
+
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
