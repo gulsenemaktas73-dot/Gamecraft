@@ -1044,14 +1044,19 @@ const PH=1.75;
 const pSt={hp:20,mhp:20,hunger:20,mhunger:20,vel:new THREE.Vector3(),onGround:false,yaw:0,pitch:0,dead:false,deathMsg:'',atkCD:0,bowCD:0,hungerT:0,lavaT:0,sprint:false};
 let hotbar=HOTBAR_DEF.map(ii=>({itemIdx:ii,count:ITEMS[ii].type==='block'?32:ITEMS[ii].type==='food'?5:Infinity}));
 let selSlot=0;
-function getSlot(){return hotbar[selSlot];}
-function getItem(){const s=getSlot();return s?ITEMS[s.itemIdx]:null;}
+function getSlot(){return hotbar[selSlot]||null;}
+function getItem(){
+  const s=getSlot();
+  if(!s||s.itemIdx==null||!ITEMS[s.itemIdx])return null;
+  return ITEMS[s.itemIdx];
+}
 
 function addToInv(bi){
   const idx=ITEMS.findIndex(it=>it.type==='block'&&it.bi===bi);
   if(idx===-1)return;addToInvIdx(idx,1);
 }
 function addToInvIdx(itemIdx,count=1){
+  if(itemIdx==null||!ITEMS[itemIdx])return;
   for(let c=0;c<count;c++){
     const ex=hotbar.find(s=>s&&s.itemIdx===itemIdx&&s.count!==Infinity&&s.count<64);
     if(ex){ex.count++;buildHB();continue;}
@@ -1061,9 +1066,15 @@ function addToInvIdx(itemIdx,count=1){
   }
 }
 function useBlockSlot(){
-  const s=getSlot();if(!s)return false;
-  if(s.count<=0){notify('❌ '+ITEMS[s.itemIdx].name+' bitti!');return false;}
-  if(s.count!==Infinity){s.count--;if(s.count===0){notify('❌ '+ITEMS[s.itemIdx].name+' bitti!');hotbar[selSlot]=null;}else if(s.count<=5)notify('⚠ '+ITEMS[s.itemIdx].name+': '+s.count+' kaldı!');}
+  const s=getSlot();
+  if(!s||s.itemIdx==null||!ITEMS[s.itemIdx])return false;
+  const it=ITEMS[s.itemIdx];
+  if(s.count<=0){notify('❌ '+it.name+' bitti!');return false;}
+  if(s.count!==Infinity){
+    s.count--;
+    if(s.count===0){notify('❌ '+it.name+' bitti!');hotbar[selSlot]=null;}
+    else if(s.count<=5)notify('⚠ '+it.name+': '+s.count+' kaldı!');
+  }
   return true;
 }
 
@@ -1111,16 +1122,29 @@ function updateCoords(){
   document.getElementById('player-tag').textContent='👤 '+myName+(connections.length?' | 👥 '+(1+connections.length):'');
 }
 function buildHB(){
-  const el=document.getElementById('hotbar');el.innerHTML='';
+  const el=document.getElementById('hotbar');if(!el)return;el.innerHTML='';
   hotbar.forEach((s,i)=>{
     const d=document.createElement('div');d.className='hslot'+(i===selSlot?' active':'');d.id='hs'+i;
-    if(s){const it=ITEMS[s.itemIdx];d.innerHTML=`<div class="hslot-icon">${it.icon}</div><div class="hslot-name">${it.name}</div>`;if(s.count!==Infinity)d.innerHTML+=`<div class="hslot-cnt">${s.count}</div>`;}
+    if(s!=null&&s.itemIdx!=null&&ITEMS[s.itemIdx]){
+      const it=ITEMS[s.itemIdx];
+      d.innerHTML=`<div class="hslot-icon">${it.icon}</div><div class="hslot-name">${it.name}</div>`;
+      if(s.count!==Infinity&&s.count>0)d.innerHTML+=`<div class="hslot-cnt">${s.count}</div>`;
+    }
     d.addEventListener('click',()=>selS(i));el.appendChild(d);
   });
   updateLabel();
 }
-function selS(i){document.getElementById('hs'+selSlot)?.classList.remove('active');selSlot=i;document.getElementById('hs'+i)?.classList.add('active');updateLabel();}
-function updateLabel(){const it=getItem();document.getElementById('item-label').textContent=it?it.icon+' '+it.name+(it.desc?' — '+it.desc:''):'';}
+function selS(i){
+  document.getElementById('hs'+selSlot)?.classList.remove('active');
+  selSlot=i;
+  document.getElementById('hs'+i)?.classList.add('active');
+  updateLabel();
+}
+function updateLabel(){
+  const it=getItem();
+  const lbl=document.getElementById('item-label');
+  if(lbl)lbl.textContent=it?it.icon+' '+it.name+(it.desc?' — '+it.desc:''):'';
+}
 
 // ══════════════════════════════════════════════════════
 // ENVANTER
